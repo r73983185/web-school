@@ -72,14 +72,21 @@ if (isset($_POST["ubahSandi"])) {
             $err = "Konfirmasi password tidak sesuai";
         }
 
-        if(empty($err)){
-            $password = password_hash($password, PASSWORD_DEFAULT);
-            $query = "UPDATE admin SET password_admin = '$password' WHERE username_admin = '$username'";
-            mysqli_query($koneksi, $query);
-            if(mysqli_affected_rows($koneksi) > 0){
-                echo "<script>alert('berhasil mengubah password!'); document.location.href = 'account.php'</script>";
-            }
-        }
+        if (empty($err)) {
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+
+    // Gunakan prepared statement
+    $stmt = $koneksi->prepare("UPDATE admin SET password_admin = ? WHERE username_admin = ?");
+    $stmt->bind_param("ss", $hashedPassword, $username);
+    $stmt->execute();
+
+    if ($stmt->affected_rows > 0) {
+        echo "<script>alert('berhasil mengubah password!'); document.location.href = 'account.php'</script>";
+    }
+
+    $stmt->close();
+}
+
     }
 }
 
