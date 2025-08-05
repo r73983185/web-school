@@ -286,31 +286,56 @@
     }
 
     //function edit berita
-    function editBerita(){
-        global $koneksi;
-        $id = $_POST["id"];
-        $judul = htmlspecialchars(mysqli_real_escape_string( $koneksi, $_POST["judul_berita"]));
-        $penulis = htmlspecialchars(mysqli_real_escape_string( $koneksi, $_POST["penulis"]));
-        $isi = htmlspecialchars(mysqli_real_escape_string( $koneksi, $_POST["isi_berita"]));
-    
-        if(isset($_FILES["gambar_berita"]) && $_FILES["gambar_berita"]["error"] !== 4){
-            $gambar = upload();
+    function editBerita() {
+    global $koneksi;
 
-            if(!$gambar){
-                return false;
-            }
-        }else{
-            $query = "SELECT * FROM berita WHERE id = $id";
-            $result = mysqli_query($koneksi, $query );
-            $berita = mysqli_fetch_assoc($result);
-            $gambar = $berita["gambar_berita"];
+    // Validasi ID
+    $id = filter_input(INPUT_POST, "id", FILTER_VALIDATE_INT);
+    if ($id === false) {
+        return false; // ID tidak valid
+    }
+
+    // Sanitasi input
+    $judul   = htmlspecialchars($_POST["judul_berita"]);
+    $penulis = htmlspecialchars($_POST["penulis"]);
+    $isi     = htmlspecialchars($_POST["isi_berita"]);
+
+    // Cek upload gambar
+    if (isset($_FILES["gambar_berita"]) && $_FILES["gambar_berita"]["error"] !== 4) {
+        $gambar = upload();
+        if (!$gambar) {
+            return false; // Upload gagal
         }
+    } else {
+        // Ambil gambar lama dengan prepared statement
+        $stmt = $koneksi->prepare("SELECT gambar_berita FROM berita WHERE id = ?");
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $berita = $result->fetch_assoc();
+
+        if (!$berita) {
+            return false; // Data tidak ditemukan
+        }
+        $gambar = $berita["gambar_berita"];
+    }
+
+    // Update data dengan prepared statement
+    $stmt = $koneksi->prepare("UPDATE berita SET judul_berita = ?, isi_berita = ?, penulis = ?, gambar_berita = ? WHERE id = ?");
+    $stmt->bind_param("ssssi", $judul, $isi, $penulis, $gambar, $id);
+    $stmt->execute();
+
+    return $stmt->affected_rows;
+}
+
 
         //query
-        $query = "UPDATE berita SET judul_berita = '$judul', isi_berita = '$isi', penulis = '$penulis', gambar_berita = '$gambar' WHERE id = $id";
-        mysqli_query( $koneksi, $query);
+        $stmt = $koneksi->prepare("UPDATE berita SET judul_berita = ?, isi_berita = ?, penulis = ?, gambar_berita = ? WHERE id = ?");
+        $stmt->bind_param("ssssi", $judul, $isi, $penulis, $gambar, $id);
+        $stmt->execute();
 
-        return mysqli_affected_rows( $koneksi );
+        return $stmt->affected_rows;
+
     }
 
     //function admin

@@ -39,25 +39,18 @@ if(isset($_POST["ubahProfil"])){
     }
 
 
-    // Cek apakah username sudah ada
-    $stmt = $koneksi->prepare("SELECT username_admin FROM admin WHERE username_admin = ?");
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
-    $result2 = $stmt->get_result();
-
-    if ($result2->num_rows == 1) {
+    $query2 = "SELECT username_admin FROM admin WHERE username_admin = '$username'";
+    $result2 = mysqli_query($koneksi, $query2);
+    //2 karena session usernamenya terpakai
+    if(mysqli_num_rows($result2) == 1){
         echo "<script>alert('Username admin sudah ada, gagal mengubah profil'); document.location.href = 'account.php'</script>";
         exit;
-    } else {
-        // Update data admin
-        $stmt = $koneksi->prepare("UPDATE admin SET username_admin = ?, email_admin = ?, gambar_admin = ? WHERE username_admin = ?");
-        $stmt->bind_param("ssss", $username, $email, $gambar, $id);
-        $stmt->execute();
-
+    }else{
+        $query = "UPDATE admin SET username_admin = '$username', email_admin = '$email', gambar_admin = '$gambar' WHERE username_admin = '$id'";
+        $result = mysqli_query($koneksi, $query);
         $_SESSION["username-admin"] = $username;
         echo "<script>alert('berhasil mengubah profil!'); document.location.href = 'account.php'</script>";
     }
-
     
 }
 
