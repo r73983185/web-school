@@ -6,15 +6,38 @@
     //KODE DIBAWAH INI ADALAH FUNCTION DARI BERBAGAI FITUR, MOHON JANGAN DI UBAH KECUALI ANDA MENGERTI
 
     //function query
-    function query($query) {
-        global $koneksi;
-        $result = mysqli_query($koneksi, $query);
-        $rows = [];
-        while ($row = mysqli_fetch_assoc($result)) {
-            $rows[] = $row;
-        }
-        return $rows;
+    function query($query, $params = [], $types = "")
+{
+    global $koneksi;
+
+    $stmt = $koneksi->prepare($query);
+    if (!$stmt) {
+        die("Query preparation failed: " . $koneksi->error);
     }
+
+    // Jika ada parameter, bind ke query
+    if (!empty($params)) {
+        // Otomatis deteksi tipe jika $types kosong
+        if ($types === "") {
+            foreach ($params as $param) {
+                $types .= is_int($param) ? 'i' : (is_double($param) ? 'd' : 's');
+            }
+        }
+        $stmt->bind_param($types, ...$params);
+    }
+
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $rows = [];
+    while ($row = $result->fetch_assoc()) {
+        $rows[] = $row;
+    }
+
+    $stmt->close();
+    return $rows;
+}
+
 
 
     function totalAdmin(){
@@ -264,26 +287,42 @@
     }
     
 
-    function deleteBerita($id){
-        global $koneksi;
-        //hapus gambar
-        $query = "SELECT * FROM berita WHERE id = ?";
-        $statement = mysqli_prepare($koneksi, $query);
-        mysqli_stmt_bind_param($statement, "s", $id);
-        mysqli_stmt_execute($statement);
-        $result = mysqli_stmt_get_result($statement);
-        $row = mysqli_fetch_assoc($result);
-        if(file_exists("../src/img-berita/" . $row["gambar_berita"])){
-            unlink("../src/img-berita/" . $row["gambar_berita"]);
-        }
+    function deleteBerita($id) {
+    global $koneksi;
 
-
-        $query = "DELETE FROM berita WHERE id = ?";
-        $statement = mysqli_prepare( $koneksi, $query );
-        mysqli_stmt_bind_param( $statement,"i", $id );
-        mysqli_stmt_execute( $statement );
-        return mysqli_affected_rows( $koneksi );
+    // Validasi id sebagai integer
+    $id = filter_var($id, FILTER_VALIDATE_INT);
+    if ($id === false) {
+        return 0;
     }
+
+    // Ambil nama file gambar
+    $stmt = $koneksi->prepare("SELECT gambar_berita FROM berita WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($row = $result->fetch_assoc()) {
+        $gambarPath = "../src/img-berita/" . $row["gambar_berita"];
+        if (file_exists($gambarPath)) {
+            unlink($gambarPath); // Hapus file gambar dari server
+        }
+    } else {
+        return 0; // Data tidak ditemukan
+    }
+    $stmt->close();
+
+    // Hapus data dari database
+    $stmt = $koneksi->prepare("DELETE FROM berita WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+
+    $affected = $stmt->affected_rows;
+    $stmt->close();
+
+    return $affected;
+}
+
 
     //function edit berita
     function editBerita() {
